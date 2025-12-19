@@ -1,6 +1,6 @@
 # TMDL to JSON Converter
 
-A Python utility to convert Tabular Model Definition Language (TMDL) files into JSON format. This tool parses the indentation-based TMDL syntax and outputs a structured JSON representation, making it easier to process or analyze Power BI/Analysis Services semantic models programmatically.
+A Python3 utility to convert Tabular Model Definition Language (TMDL) files into JSON format. This tool parses the indentation-based TMDL syntax and outputs a structured JSON representation, making it easier to process or analyze Power BI/Analysis Services semantic models programmatically.
 
 For a detailed breakdown of supported features and extraction capabilities, please refer to the [Technical Specification](TECHNICAL_SPEC.md).
 
@@ -21,22 +21,7 @@ For a detailed breakdown of supported features and extraction capabilities, plea
 └── README.md
 ```
 
-## Setup
-
-The project includes a Python virtual environment in the `env` folder.
-
-**Windows (PowerShell):**
-```powershell
-.\env\Scripts\Activate.ps1
-```
-
 ## Usage
-
-Navigate to the `code` directory to run the scripts:
-
-```bash
-cd code
-```
 
 ### 1. Convert a single file
 
