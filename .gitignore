@@ -1,0 +1,4 @@
+*.pyc
+__pycache__/
+tmdl/
+json_output/
