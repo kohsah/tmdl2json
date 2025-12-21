@@ -227,10 +227,18 @@ relationship 6a714e8c-01ad-40bf-b082-bc734e0434db
         self.assertEqual(rel1['type'], 'relationship')
         self.assertEqual(rel1['joinOnDateBehavior'], 'datePartOnly')
         self.assertEqual(rel1['fromColumn'], 'DimCountry.loaddate')
+        self.assertEqual(rel1['fromTable'], 'DimCountry')
+        self.assertEqual(rel1['fromColumn'], 'DimCountry.loaddate') # Original preserved
+        self.assertEqual(rel1['fromColumnName'], 'loaddate')
+        self.assertEqual(rel1['toColumn'], 'LocalDateTable_5a13719e-1f5e-4327-aa48-e42d38b532fb.Date')
+        self.assertEqual(rel1['toTable'], 'LocalDateTable_5a13719e-1f5e-4327-aa48-e42d38b532fb')
+        self.assertEqual(rel1['toColumnName'], 'Date')
         
         rel2 = rels[1]
         self.assertEqual(rel2['name'], '6a714e8c-01ad-40bf-b082-bc734e0434db')
         self.assertEqual(rel2['fromColumn'], 'DimRegion.loaddate')
+        self.assertEqual(rel2['fromTable'], 'DimRegion')
+        self.assertEqual(rel2['fromColumnName'], 'loaddate')
 
 if __name__ == '__main__':
     unittest.main()

@@ -174,13 +174,45 @@ class TmdlParser:
     def _handle_property(self, content, parent, indent):
         if ': ' in content:
             key, value = content.split(': ', 1)
-            parent[key] = value
+            if key in ('fromColumn', 'toColumn'):
+                self._handle_column_reference(key, value, parent)
+            else:
+                parent[key] = value
         elif content.endswith(' ='):
             key = content[:-2]
             self._handle_multiline_block(key, parent, indent)
         elif '=' in content:
             key, value = [x.strip() for x in content.split('=', 1)]
             parent[key] = value
+
+    def _handle_column_reference(self, key, value, parent):
+        parent[key] = value
+        
+        # Breakdown into table and column
+        if '.' in value:
+            # Split by the last dot to separate column from table (in case table has dots, though rare/quoted)
+            # Standard TMDL format is Table.Column
+            table_part, col_part = value.rsplit('.', 1)
+            
+            # Helper to strip quotes if present
+            def strip_quotes(s):
+                s = s.strip()
+                if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
+                    return s[1:-1]
+                return s
+
+            table_name = strip_quotes(table_part)
+            col_name = strip_quotes(col_part)
+            
+            # Add breakdown fields
+            # We use key + "Table" and key + "Column" (e.g. fromColumnTable, fromColumnColumn)
+            # Or simplified: fromTable, fromColumnName?
+            # To be safe and explicit:
+            prefix = "from" if key == "fromColumn" else "to"
+            
+            parent[f"{prefix}Table"] = table_name
+            parent[f"{prefix}ColumnName"] = col_name
+
 
     def _handle_multiline_block(self, key, parent, indent):
         block_lines = []
