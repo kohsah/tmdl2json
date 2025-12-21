@@ -203,5 +203,34 @@ table ReportPages
         self.assertIn('VAR x = 1', m3['expression'])
         self.assertEqual(m3['formatString'], '#')
 
+    def test_relationships(self):
+        content = """
+relationship 3e854db7-a13c-4e2c-849d-ccc951acba01
+	joinOnDateBehavior: datePartOnly
+	fromColumn: DimCountry.loaddate
+	toColumn: LocalDateTable_5a13719e-1f5e-4327-aa48-e42d38b532fb.Date
+
+relationship 6a714e8c-01ad-40bf-b082-bc734e0434db
+	fromColumn: DimRegion.loaddate
+	toColumn: LocalDateTable_9acbb5a2-1056-4af2-897a-95f9dcbd723b.Date
+"""
+        self.write_tmdl(content)
+        parser = TmdlParser(self.test_file_path)
+        result = parser.parse()
+        
+        self.assertIn('relationships', result)
+        rels = result['relationships']
+        self.assertEqual(len(rels), 2)
+        
+        rel1 = rels[0]
+        self.assertEqual(rel1['name'], '3e854db7-a13c-4e2c-849d-ccc951acba01')
+        self.assertEqual(rel1['type'], 'relationship')
+        self.assertEqual(rel1['joinOnDateBehavior'], 'datePartOnly')
+        self.assertEqual(rel1['fromColumn'], 'DimCountry.loaddate')
+        
+        rel2 = rels[1]
+        self.assertEqual(rel2['name'], '6a714e8c-01ad-40bf-b082-bc734e0434db')
+        self.assertEqual(rel2['fromColumn'], 'DimRegion.loaddate')
+
 if __name__ == '__main__':
     unittest.main()

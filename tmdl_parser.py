@@ -52,8 +52,23 @@ class TmdlParser:
             self._handle_annotation(content, parent)
         elif content.startswith('measure '):
             self._handle_measure(content, parent, indent)
+        elif content.startswith('relationship '):
+            self._handle_relationship(content, parent, indent)
         else:
             self._handle_property(content, parent, indent)
+
+    def _handle_relationship(self, content, parent, indent):
+        rel_def = content.split(' ', 1)[1]
+        new_rel = {'name': rel_def, 'type': 'relationship'}
+        
+        # Relationships are top-level in relationships.tmdl, but let's check structure.
+        # Usually they are at the root level in that file.
+        if 'relationships' not in self.root:
+            self.root['relationships'] = []
+            
+        self.root['relationships'].append(new_rel)
+        # Relationship properties are indented under it, so we push to stack
+        self.stack.append((new_rel, indent))
 
     def _handle_table(self, content):
         table_name = content.split(' ', 1)[1]
