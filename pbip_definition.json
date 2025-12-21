@@ -1,0 +1,25 @@
+{
+    "pbip_file_pattern": "*.pbip",
+    "report_folder_pattern": "*.Report",
+    "model_folder_pattern": "*.SemanticModel",
+
+    "content": {
+        "definition_folder": "definition",
+        "dot_platform_file": ".platform", 
+        "diagram_layout_file": "diagramLayout.json"
+    },
+    "definition_folder_structure": {
+        "content": {
+            "files": {
+                "database_tmdl": "database.tmdl",
+                "expressions_tmdl": "expressions.tmdl",
+                "model_tmdl": "model.tmdl",
+                "relationships_tmdl": "relationships.tmdl"
+            },
+            "folders": {
+                "cultures": "cultures",
+                "tables": "tables"
+            }
+        }
+    }
+}
