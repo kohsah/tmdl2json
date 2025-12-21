@@ -28,7 +28,7 @@ class TmdlParser:
             content = line.strip()
 
             # Adjust stack
-            while self.stack[-1][1] >= indent:
+            while len(self.stack) > 1 and self.stack[-1][1] >= indent:
                 self.stack.pop()
             
             parent = self.stack[-1][0]
@@ -44,6 +44,10 @@ class TmdlParser:
     def _process_line(self, content, parent, indent):
         if content.startswith('table '):
             self._handle_table(content)
+        elif content.startswith('database '):
+            self._handle_root_object(content, 'database')
+        elif content.startswith('model '):
+            self._handle_root_object(content, 'model')
         elif content.startswith('column '):
             self._handle_column(content, parent, indent)
         elif content.startswith('partition '):
@@ -74,6 +78,13 @@ class TmdlParser:
         table_name = content.split(' ', 1)[1]
         self.root['name'] = table_name
         self.root['type'] = 'table'
+        # Reset stack for root properties
+        self.stack = [(self.root, 0)]
+
+    def _handle_root_object(self, content, type_name):
+        obj_name = content.split(' ', 1)[1]
+        self.root['name'] = obj_name
+        self.root['type'] = type_name
         # Reset stack for root properties
         self.stack = [(self.root, 0)]
     
