@@ -139,6 +139,37 @@ The output is a hierarchical JSON object:
 }
 ```
 
+## 6. ERD Generation
+
+The tool includes a dedicated module (`erd_generator.py`) to visualize the semantic model structure.
+
+### 6.1 Logic and Rules
+- **Mermaid Syntax**: Output follows the standard Mermaid `erDiagram` syntax.
+- **Table Exclusion**: 
+  - Automatically filters out internal system tables to reduce noise.
+  - **Exclusion Pattern**: Tables containing `DateTableTemplate` or `LocalDateTable` (case-insensitive) are skipped.
+  - **Relationship Filtering**: Any relationship involving an excluded table is also removed.
+- **Column Name Sanitization**:
+  - **Formula Trimming**: Detects columns with DAX formulas (containing `=`) and truncates the name at the first `=` sign.
+  - **Character Cleanup**: Removes quotes and replaces spaces with underscores to ensure valid Mermaid identifiers.
+- **Data Type Mapping**: Maps TMDL data types to generic ERD types:
+  - `int64` -> `int`
+  - `double`, `decimal` -> `float` / `decimal`
+  - `dateTime` -> `datetime`
+  - `binary` -> `blob`
+- **Relationships**:
+  - Cardinality defaults to `}o--||` (Many-to-One) unless specified otherwise.
+  - Labels are formatted as `"FromColumn to ToColumn"`.
+
+### 6.2 PNG Export
+- **Mechanism**: Generates PNGs by sending the Mermaid definition to the `mermaid.ink` API.
+- **Implementation**:
+  - Encodes the Mermaid Markdown string to UTF-8.
+  - Converts the byte stream to a URL-safe Base64 string.
+  - Constructs the URL: `https://mermaid.ink/img/<Base64String>`.
+  - Downloads the binary content via `urllib` and saves it to the specified path.
+- **Dependencies**: Uses only standard Python libraries (`base64`, `urllib`), ensuring zero external dependencies.
+
 ## Annex: Understanding LocalDateTable Files
 
 ### What are they?
