@@ -1,6 +1,41 @@
 import json
 import argparse
 import sys
+import base64
+import urllib.request
+
+def generate_png_from_mermaid(mermaid_code, output_path):
+    try:
+        # Mermaid Ink API expects base64 encoded string
+        # Standard base64 might contain + and / which can be problematic in URLs sometimes,
+        # but mermaid.ink handles standard base64 if correctly passed.
+        # However, checking docs, they use base64.urlsafe_b64encode usually.
+        # Let's use urlsafe_b64encode to be safe.
+        
+        graphbytes = mermaid_code.encode("utf8")
+        base64_bytes = base64.urlsafe_b64encode(graphbytes)
+        base64_string = base64_bytes.decode("ascii")
+        
+        url = "https://mermaid.ink/img/" + base64_string
+        
+        print(f"Fetching PNG from: {url[:50]}...")
+        
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
+        
+        with urllib.request.urlopen(req) as response:
+            with open(output_path, 'wb') as f:
+                f.write(response.read())
+        print(f"PNG generated at: {output_path}")
+        
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error generating PNG: {e.code} - {e.reason}", file=sys.stderr)
+        if e.code == 414: # URI Too Long
+            print("Error: The diagram is too large for the Mermaid.ink API (URI Too Long).", file=sys.stderr)
+    except Exception as e:
+        print(f"Error generating PNG: {e}", file=sys.stderr)
 
 def generate_mermaid_erd(json_data):
     lines = ["erDiagram"]
@@ -180,6 +215,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate Mermaid ERD from TMDL JSON output")
     parser.add_argument("input_file", help="Path to the JSON input file")
     parser.add_argument("--output", "-o", help="Path to output Mermaid file (e.g. output.mmd or output.md)")
+    parser.add_argument("--png-output", help="Path to output PNG file (e.g. output.png). Uses mermaid.ink API.")
     
     args = parser.parse_args()
     
@@ -199,8 +235,12 @@ def main():
                 else:
                     f.write(mermaid_content)
             print(f"ERD generated at: {args.output}")
-        else:
+        elif not args.png_output:
+            # Print to stdout if no output specified and no png requested
             print(mermaid_content)
+            
+        if args.png_output:
+            generate_png_from_mermaid(mermaid_content, args.png_output)
             
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
