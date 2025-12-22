@@ -15,9 +15,10 @@ For a detailed breakdown of supported features and extraction capabilities, plea
 
 ```
 .
-├── tmdl/                   # Example TMDL files
-├── tmdl_parser.py          # Main converter script
+├── tmdl_parser.py          # Main TMDL to JSON converter script
+├── erd_generator.py        # ERD generator script
 ├── test_tmdl_parser.py     # Unit tests
+├── TECHNICAL_SPEC.md       # Technical documentation
 └── README.md
 ```
 
@@ -59,3 +60,40 @@ Unit tests are provided to verify the parser's functionality. Run them from the 
 ```bash
 python test_tmdl_parser.py
 ```
+
+## ERD Generation
+
+The `erd_generator.py` utility allows you to generate Entity Relationship Diagrams (ERD) from the JSON output produced by the TMDL parser.
+
+### Features
+
+- **Mermaid Syntax**: Generates standard Mermaid ERD diagrams compatible with GitHub, Notion, and other tools.
+- **Smart Filtering**: Automatically excludes system tables (`DateTableTemplate`, `LocalDateTable`) to focus on your business logic.
+- **Clean Output**: Trims DAX formulas from column names for better readability.
+- **PNG Export**: Can export diagrams directly to PNG images using the mermaid.ink API (requires internet access).
+
+### Usage
+
+**1. Generate Mermaid Markdown:**
+
+```bash
+python erd_generator.py input.json --output diagram.md
+```
+
+**2. Generate PNG Image:**
+
+```bash
+python erd_generator.py input.json --png-output diagram.png
+```
+
+**3. Generate both Markdown and PNG:**
+
+```bash
+python erd_generator.py input.json --output diagram.md --png-output diagram.png
+```
+
+### Options
+
+- `input_file`: Path to the JSON input file (output from `tmdl_parser.py`).
+- `--output`, `-o`: Path to output Mermaid file (e.g. `output.md`). If ending in `.md`, wraps content in a mermaid code block.
+- `--png-output`: Path to output PNG file. Fetches the rendered image from mermaid.ink.

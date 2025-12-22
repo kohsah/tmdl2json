@@ -28,7 +28,7 @@ class TmdlParser:
             content = line.strip()
 
             # Adjust stack
-            while self.stack[-1][1] >= indent:
+            while len(self.stack) > 1 and self.stack[-1][1] >= indent:
                 self.stack.pop()
             
             parent = self.stack[-1][0]
@@ -44,6 +44,10 @@ class TmdlParser:
     def _process_line(self, content, parent, indent):
         if content.startswith('table '):
             self._handle_table(content)
+        elif content.startswith('database '):
+            self._handle_root_object(content, 'database')
+        elif content.startswith('model '):
+            self._handle_root_object(content, 'model')
         elif content.startswith('column '):
             self._handle_column(content, parent, indent)
         elif content.startswith('partition '):
@@ -52,13 +56,35 @@ class TmdlParser:
             self._handle_annotation(content, parent)
         elif content.startswith('measure '):
             self._handle_measure(content, parent, indent)
+        elif content.startswith('relationship '):
+            self._handle_relationship(content, parent, indent)
         else:
             self._handle_property(content, parent, indent)
+
+    def _handle_relationship(self, content, parent, indent):
+        rel_def = content.split(' ', 1)[1]
+        new_rel = {'name': rel_def, 'type': 'relationship'}
+        
+        # Relationships are top-level in relationships.tmdl, but let's check structure.
+        # Usually they are at the root level in that file.
+        if 'relationships' not in self.root:
+            self.root['relationships'] = []
+            
+        self.root['relationships'].append(new_rel)
+        # Relationship properties are indented under it, so we push to stack
+        self.stack.append((new_rel, indent))
 
     def _handle_table(self, content):
         table_name = content.split(' ', 1)[1]
         self.root['name'] = table_name
         self.root['type'] = 'table'
+        # Reset stack for root properties
+        self.stack = [(self.root, 0)]
+
+    def _handle_root_object(self, content, type_name):
+        obj_name = content.split(' ', 1)[1]
+        self.root['name'] = obj_name
+        self.root['type'] = type_name
         # Reset stack for root properties
         self.stack = [(self.root, 0)]
     
@@ -148,13 +174,45 @@ class TmdlParser:
     def _handle_property(self, content, parent, indent):
         if ': ' in content:
             key, value = content.split(': ', 1)
-            parent[key] = value
+            if key in ('fromColumn', 'toColumn'):
+                self._handle_column_reference(key, value, parent)
+            else:
+                parent[key] = value
         elif content.endswith(' ='):
             key = content[:-2]
             self._handle_multiline_block(key, parent, indent)
         elif '=' in content:
             key, value = [x.strip() for x in content.split('=', 1)]
             parent[key] = value
+
+    def _handle_column_reference(self, key, value, parent):
+        parent[key] = value
+        
+        # Breakdown into table and column
+        if '.' in value:
+            # Split by the last dot to separate column from table (in case table has dots, though rare/quoted)
+            # Standard TMDL format is Table.Column
+            table_part, col_part = value.rsplit('.', 1)
+            
+            # Helper to strip quotes if present
+            def strip_quotes(s):
+                s = s.strip()
+                if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
+                    return s[1:-1]
+                return s
+
+            table_name = strip_quotes(table_part)
+            col_name = strip_quotes(col_part)
+            
+            # Add breakdown fields
+            # We use key + "Table" and key + "Column" (e.g. fromColumnTable, fromColumnColumn)
+            # Or simplified: fromTable, fromColumnName?
+            # To be safe and explicit:
+            prefix = "from" if key == "fromColumn" else "to"
+            
+            parent[f"{prefix}Table"] = table_name
+            parent[f"{prefix}ColumnName"] = col_name
+
 
     def _handle_multiline_block(self, key, parent, indent):
         block_lines = []
