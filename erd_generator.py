@@ -3,6 +3,11 @@ import argparse
 import sys
 import base64
 import urllib.request
+import os
+import shutil
+import subprocess
+import tempfile
+import importlib
 
 def generate_png_from_mermaid(mermaid_code, output_path):
     try:
@@ -36,6 +41,58 @@ def generate_png_from_mermaid(mermaid_code, output_path):
             print("Error: The diagram is too large for the Mermaid.ink API (URI Too Long).", file=sys.stderr)
     except Exception as e:
         print(f"Error generating PNG: {e}", file=sys.stderr)
+
+def _resolve_mmdc_path(mmdc_path):
+    if mmdc_path:
+        return mmdc_path
+    env_path = os.environ.get('MMDC_PATH')
+    if env_path:
+        return env_path
+    resolved = shutil.which('mmdc')
+    if resolved:
+        return resolved
+    raise FileNotFoundError("Mermaid CLI not found (mmdc). Install @mermaid-js/mermaid-cli or provide --mmdc-path.")
+
+def generate_png_from_mermaid_local(mermaid_code, output_path, mmdc_path=None):
+    mmdc = _resolve_mmdc_path(mmdc_path)
+    output_dir = os.path.dirname(os.path.abspath(output_path))
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_path = os.path.join(tmpdir, 'diagram.mmd')
+        with open(input_path, 'w', encoding='utf-8') as f:
+            f.write(mermaid_code)
+        result = subprocess.run(
+            [mmdc, '-i', input_path, '-o', output_path],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or result.stdout or '').strip() or "Mermaid CLI failed")
+    print(f"PNG generated at: {output_path}")
+
+def _import_mermaid_cli():
+    try:
+        return importlib.import_module('mermaid_cli')
+    except Exception as e:
+        raise ImportError("Python dependency 'mermaid-cli' is not available. Install it (see requirements.txt) to use --png-mode python.") from e
+
+def generate_png_from_mermaid_python(mermaid_code, output_path):
+    mermaid_cli = _import_mermaid_cli()
+    render = getattr(mermaid_cli, 'render_mermaid_file_sync', None)
+    if render is None:
+        raise AttributeError("mermaid_cli.render_mermaid_file_sync is not available; cannot render with --png-mode python")
+
+    output_dir = os.path.dirname(os.path.abspath(output_path))
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_path = os.path.join(tmpdir, 'diagram.mmd')
+        with open(input_path, 'w', encoding='utf-8') as f:
+            f.write(mermaid_code)
+        render(input_file=input_path, output_file=output_path, output_format='png')
+    print(f"PNG generated at: {output_path}")
 
 def generate_mermaid_erd(json_data):
     lines = ["erDiagram"]
@@ -215,7 +272,9 @@ def main():
     parser = argparse.ArgumentParser(description="Generate Mermaid ERD from TMDL JSON output")
     parser.add_argument("input_file", help="Path to the JSON input file")
     parser.add_argument("--output", "-o", help="Path to output Mermaid file (e.g. output.mmd or output.md)")
-    parser.add_argument("--png-output", help="Path to output PNG file (e.g. output.png). Uses mermaid.ink API.")
+    parser.add_argument("--png-output", help="Path to output PNG file (e.g. output.png).")
+    parser.add_argument("--png-mode", choices=["remote", "local", "python"], default="remote", help="PNG rendering mode: remote (mermaid.ink), local (Mermaid CLI), or python (Python mermaid-cli).")
+    parser.add_argument("--mmdc-path", default=None, help="Path to Mermaid CLI executable (mmdc) for --png-mode local.")
     
     args = parser.parse_args()
     
@@ -240,7 +299,12 @@ def main():
             print(mermaid_content)
             
         if args.png_output:
-            generate_png_from_mermaid(mermaid_content, args.png_output)
+            if args.png_mode == "local":
+                generate_png_from_mermaid_local(mermaid_content, args.png_output, args.mmdc_path)
+            elif args.png_mode == "python":
+                generate_png_from_mermaid_python(mermaid_content, args.png_output)
+            else:
+                generate_png_from_mermaid(mermaid_content, args.png_output)
             
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

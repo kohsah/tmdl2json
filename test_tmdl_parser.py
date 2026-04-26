@@ -2,7 +2,8 @@ import unittest
 import os
 import json
 import tempfile
-from tmdl_parser import TmdlParser
+import shutil
+from tmdl_parser import TmdlParser, parse_pbip_report_root
 
 class TestTmdlParser(unittest.TestCase):
     def setUp(self):
@@ -239,6 +240,47 @@ relationship 6a714e8c-01ad-40bf-b082-bc734e0434db
         self.assertEqual(rel2['fromColumn'], 'DimRegion.loaddate')
         self.assertEqual(rel2['fromTable'], 'DimRegion')
         self.assertEqual(rel2['fromColumnName'], 'loaddate')
+
+    def test_pbip_root_folder_input(self):
+        repo_dir = os.path.dirname(__file__)
+        pbip_root = os.path.join(repo_dir, 'test_inputs', 'duty_stations_report')
+        result = parse_pbip_report_root(pbip_root)
+        self.assertIn('database', result)
+        self.assertIn('model', result)
+        self.assertIn('relationships', result)
+        self.assertIn('tables', result)
+        self.assertTrue(isinstance(result['tables'], list))
+        self.assertTrue(len(result['tables']) > 0)
+        self.assertIn('cultures', result)
+        self.assertTrue(isinstance(result['cultures'], list))
+        self.assertTrue(len(result['cultures']) > 0)
+
+    def test_pbip_file_path_input(self):
+        repo_dir = os.path.dirname(__file__)
+        pbip_path = os.path.join(repo_dir, 'test_inputs', 'duty_stations_report', 'Duty Stations Report.pbip')
+        result = parse_pbip_report_root(pbip_path)
+        self.assertIn('database', result)
+        self.assertIn('model', result)
+        self.assertIn('relationships', result)
+        self.assertIn('tables', result)
+
+    def test_pbip_root_ambiguous_pbip_files(self):
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            open(os.path.join(tmp_dir, 'a.pbip'), 'w', encoding='utf-8').close()
+            open(os.path.join(tmp_dir, 'b.pbip'), 'w', encoding='utf-8').close()
+            with self.assertRaises(ValueError):
+                parse_pbip_report_root(tmp_dir)
+        finally:
+            shutil.rmtree(tmp_dir)
+
+    def test_pbip_root_missing_pbip_file(self):
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            with self.assertRaises(ValueError):
+                parse_pbip_report_root(tmp_dir)
+        finally:
+            shutil.rmtree(tmp_dir)
 
 if __name__ == '__main__':
     unittest.main()
