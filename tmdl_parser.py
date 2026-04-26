@@ -243,6 +243,12 @@ class TmdlParser:
             self._extract_schema_item(normalized_block, parent)
             self._extract_base64_content(normalized_block, parent)
 
+    def _current_table_object(self):
+        for obj, _indent in reversed(self.stack):
+            if isinstance(obj, dict) and obj.get('type') == 'table':
+                return obj
+        return None
+
     def _extract_base64_content(self, source_code, parent):
         # Look for pattern: Binary.FromText("...", BinaryEncoding.Base64)
         pattern = re.compile(r'Binary\.FromText\(\s*"([^"]+)"\s*,\s*BinaryEncoding\.Base64\s*\)')
@@ -307,6 +313,11 @@ class TmdlParser:
                 })
             
             parent['sourceDetails'] = extracted_info
+            table_obj = self._current_table_object()
+            if table_obj is not None and extracted_info:
+                table_obj.setdefault('schema', extracted_info[0]['schema'])
+                table_obj.setdefault('item', extracted_info[0]['item'])
+                table_obj.setdefault('table_item', table_obj.get('item'))
 
     def _normalize_block(self, block_lines):
         if not block_lines:

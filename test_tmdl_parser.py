@@ -114,6 +114,10 @@ table MyTable
         parser = TmdlParser(self.test_file_path)
         result = parser.parse()
         
+        self.assertEqual(result.get('schema'), 'dbo')
+        self.assertEqual(result.get('item'), 'Table1')
+        self.assertEqual(result.get('table_item'), 'Table1')
+
         partition = result['partitions'][0]
         self.assertIn('sourceDetails', partition)
         

@@ -107,6 +107,40 @@ def generate_mermaid_erd(json_data):
     
     # Process Tables
     tables = json_data.get("tables", [])
+    def _strip_outer_quotes(value):
+        if not isinstance(value, str):
+            return value
+        v = value.strip()
+        if len(v) >= 2 and ((v[0] == "'" and v[-1] == "'") or (v[0] == '"' and v[-1] == '"')):
+            return v[1:-1]
+        return v
+
+    def _first_schema_item(table):
+        schema = table.get("schema")
+        item = table.get("item") or table.get("table_item")
+        if schema and item:
+            return schema, item
+        partitions = table.get("partitions") or []
+        for part in partitions:
+            details = (part or {}).get("sourceDetails") or []
+            for entry in details:
+                if isinstance(entry, dict) and entry.get("schema") and entry.get("item"):
+                    return entry["schema"], entry["item"]
+        return schema, item
+
+    display_name_by_table = {}
+    for table in tables:
+        raw_name = table.get("name")
+        if not raw_name:
+            continue
+        schema, item = _first_schema_item(table)
+        display = f"{schema}.{item}" if schema and item else raw_name
+        if isinstance(display, str):
+            display = display.replace('"', "'")
+        display_name_by_table[raw_name] = display
+        normalized = _strip_outer_quotes(raw_name)
+        if normalized and normalized != raw_name:
+            display_name_by_table[normalized] = display
     processed_tables = set()
     
     for table in tables:
@@ -121,7 +155,8 @@ def generate_mermaid_erd(json_data):
         
         # Sanitize table name for Mermaid
         # We use quotes for table names to handle spaces and special chars
-        safe_table_name = f'"{table_name}"'
+        display_table_name = display_name_by_table.get(table_name, table_name)
+        safe_table_name = f'"{display_table_name}"'
         
         lines.append(f"    {safe_table_name} {{")
         
@@ -278,8 +313,13 @@ def generate_mermaid_erd(json_data):
         # The label should be quoted
         label = f"{from_col} to {to_col}".replace('"', "'")
         
-        # Use proper syntax with quotes for entities
-        lines.append(f'    "{from_table}" {left_card}{connector}{right_card} "{to_table}" : "{label}"')
+        from_display = display_name_by_table.get(from_table, from_table)
+        to_display = display_name_by_table.get(to_table, to_table)
+        if isinstance(from_display, str):
+            from_display = from_display.replace('"', "'")
+        if isinstance(to_display, str):
+            to_display = to_display.replace('"', "'")
+        lines.append(f'    "{from_display}" {left_card}{connector}{right_card} "{to_display}" : "{label}"')
 
     return "\n".join(lines)
 

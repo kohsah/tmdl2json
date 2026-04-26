@@ -1,0 +1,5 @@
+- [x] Tables with `schema` and `table_item` render as `"schema.table_item"` in Mermaid ERD
+- [x] Relationships endpoints use the same rendered names as table definitions when possible
+- [x] Tables/relationships without mapping remain unchanged
+- [x] Unit tests cover qualified names + relationship mapping
+- [x] `python -m unittest` passes

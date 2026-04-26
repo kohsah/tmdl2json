@@ -126,5 +126,67 @@ class TestMermaidErdSanitization(unittest.TestCase):
         self.assertIn("string DimCountry_country_name", mmd)
 
 
+class TestMermaidErdQualifiedNames(unittest.TestCase):
+    def test_qualified_table_name_and_relationship_mapping(self):
+        data = {
+            "tables": [
+                {
+                    "name": "'inhcm HRLocations'",
+                    "schema": "inhcm",
+                    "item": "HRLocations",
+                    "columns": [{"name": "created_by", "dataType": "string"}],
+                },
+                {
+                    "name": "'qapi vw_CurrentLocationFull_MasterData'",
+                    "schema": "qapi",
+                    "item": "vw_CurrentLocationFull_MasterData",
+                    "columns": [{"name": "location_code", "dataType": "string"}],
+                },
+            ],
+            "relationships": [
+                {
+                    "fromTable": "qapi vw_CurrentLocationFull_MasterData",
+                    "toTable": "inhcm HRLocations",
+                    "fromColumnName": "location_code",
+                    "toColumnName": "location_code",
+                    "isActive": True,
+                }
+            ],
+        }
+        mmd = generate_mermaid_erd(data)
+        self.assertIn('"inhcm.HRLocations" {', mmd)
+        self.assertIn('"qapi.vw_CurrentLocationFull_MasterData" {', mmd)
+        self.assertIn('"qapi.vw_CurrentLocationFull_MasterData" }o--|| "inhcm.HRLocations" : "location_code to location_code"', mmd)
+
+    def test_qualified_names_fall_back_to_partition_source_details(self):
+        data = {
+            "tables": [
+                {
+                    "name": "'inhcm HRLocations'",
+                    "columns": [{"name": "created_by", "dataType": "string"}],
+                    "partitions": [{"sourceDetails": [{"schema": "inhcm", "item": "HRLocations"}]}],
+                },
+                {
+                    "name": "'qapi vw_CurrentLocationFull_MasterData'",
+                    "columns": [{"name": "location_code", "dataType": "string"}],
+                    "partitions": [{"sourceDetails": [{"schema": "qapi", "item": "vw_CurrentLocationFull_MasterData"}]}],
+                },
+            ],
+            "relationships": [
+                {
+                    "fromTable": "qapi vw_CurrentLocationFull_MasterData",
+                    "toTable": "inhcm HRLocations",
+                    "fromColumnName": "location_code",
+                    "toColumnName": "location_code",
+                    "isActive": True,
+                }
+            ],
+        }
+        mmd = generate_mermaid_erd(data)
+        self.assertIn('"inhcm.HRLocations" {', mmd)
+        self.assertIn('"qapi.vw_CurrentLocationFull_MasterData" {', mmd)
+        self.assertIn('"qapi.vw_CurrentLocationFull_MasterData" }o--|| "inhcm.HRLocations" : "location_code to location_code"', mmd)
+
+
 if __name__ == "__main__":
     unittest.main()

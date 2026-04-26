@@ -1,0 +1,6 @@
+- [x] Partition `sourceDetails` includes `{schema, item}` extracted from `{[Schema="...",Item="..."]}` in M `source`
+- [x] Both provided fixtures produce expected `{schema, item}` values in their partition outputs
+- [x] Table JSON includes `schema` and `table_item` when partition schema/item are extracted
+- [x] Multi-occurrence sources append multiple `{schema, item}` entries in order
+- [x] Existing partition fields (`name`, `partitionType`, `mode`, `source`) remain unchanged
+- [x] Unit tests cover extraction and pass via `python -m unittest`
