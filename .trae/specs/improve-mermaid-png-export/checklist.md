@@ -1,0 +1,11 @@
+- [x] `erd_generator.py` supports `--png-mode local` that performs PNG export without any network calls
+- [x] `erd_generator.py` supports `--png-mode remote` and preserves the existing default behavior for `--png-output`
+- [x] `erd_generator.py` supports `--mmdc-path` (or PATH discovery) for Mermaid CLI in local mode
+- [x] `erd_generator.py` supports `MMDC_PATH` as an environment-variable override for Mermaid CLI path in local mode
+- [x] Precedence is correct: `--mmdc-path` > `MMDC_PATH` > `PATH`
+- [x] Error messages are clear for missing local prerequisites and for HTTP/network failures in remote mode
+- [x] Unit tests mock subprocess invocation and validate local-mode behavior
+- [x] Test suite passes via `../env/python -m unittest` from `code/`
+- [x] `erd_generator.py` supports `--png-mode python` using the Python `mermaid-cli` library with no network calls
+- [x] `code/requirements.txt` exists and includes `mermaid-cli`
+- [x] Unit tests validate Python mode behavior without requiring network access

@@ -1,0 +1,8 @@
+- [x] `tmdl_parser.py` accepts a PBIP root folder input that contains a single `.pbip` file
+- [x] `tmdl_parser.py` accepts a `.pbip` file path input and resolves root from its parent directory
+- [x] PBIP resolution follows: `.pbip` → `.Report/definition.pbir` → `.SemanticModel/definition`
+- [x] Aggregated JSON includes `database`, `model`, `relationships`, `tables`, and includes `cultures` when present
+- [x] Errors are deterministic and clear for missing/ambiguous `.pbip` files and unsupported `datasetReference.byConnection`
+- [x] Unit tests cover PBIP-root success path using `code/test_inputs/duty_stations_report/`
+- [x] Unit tests cover ambiguous `.pbip` discovery failure modes
+- [x] Test suite passes via `../env/python -m unittest` from `code/`
