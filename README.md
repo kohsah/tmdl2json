@@ -2,68 +2,87 @@
 
 A Python3 utility to convert Tabular Model Definition Language (TMDL) files into JSON format. This tool parses the indentation-based TMDL syntax and outputs a structured JSON representation, making it easier to process or analyze Power BI/Analysis Services semantic models programmatically.
 
-For a detailed breakdown of supported features and extraction capabilities, please refer to the [Technical Specification](TECHNICAL_SPEC.md).
+For contributor and tooling conventions, see [AGENTS.md](AGENTS.md). For a detailed breakdown of supported features and extraction capabilities, see [docs/TECHNICAL_SPEC.md](docs/TECHNICAL_SPEC.md).
 
 ## Features
 
-- **TMDL Parsing**: Correctly handles nested structures like tables, columns, partitions, and annotations.
-- **Multi-line Support**: Handles multi-line expressions (e.g., M scripts in partitions) by stripping common indentation.
-- **Batch Processing**: Can convert a single file or an entire directory of `.tmdl` files.
-- **Flexible Output**: Supports outputting to console, a specific file, or a dedicated output directory.
+- **TMDL Parsing**: Handles root objects (`table`, `database`, `model`) and nested elements like columns, partitions, measures, annotations, and relationships.
+- **Relationship Enrichment**: Derives `fromTable`/`fromColumnName` and `toTable`/`toColumnName` from `fromColumn`/`toColumn`.
+- **Multi-line Support**: Normalizes multi-line blocks (e.g., partition `source` M scripts, measure expressions) by stripping common indentation.
+- **Partition Source Enrichment**: Extracts `{[Schema="...",Item="..."]}` references and attempts base64 decode/decompression for `Binary.FromText(..., BinaryEncoding.Base64)`.
+- **Batch Processing**: Converts a single file or an entire directory of `.tmdl` files.
+- **PBIP Parsing**: Parses a `.pbip` folder structure and aggregates model definition files into one JSON document.
+- **ERD Generation**: Produces Mermaid ER diagrams from JSON output, with optional PNG export via mermaid.ink.
 
 ## Project Structure
 
 ```
 .
-├── tmdl_parser.py          # Main TMDL to JSON converter script
-├── erd_generator.py        # ERD generator script
-├── test_tmdl_parser.py     # Unit tests
-├── TECHNICAL_SPEC.md       # Technical documentation
-└── README.md
+├── AGENTS.md
+├── README.md
+├── config_loader.py
+├── erd_generator.py
+├── pbip_definition.json
+├── pbip_parser.py
+├── tmdl_parser.py
+├── test_pbip_parser.py
+├── test_tmdl_parser.py
+└── docs/
+    └── TECHNICAL_SPEC.md
 ```
 
 ## Usage
 
-### 1. Convert a single file
+Run commands from the `code` directory using the in-repo virtual environment Python (`../env/Scripts/python.exe` on Windows, or `../env/python` if you use a shim).
+
+### 1. Convert a single TMDL file
 
 **Print to console:**
 ```bash
-python tmdl_parser.py tmdl/DimCountry.tmdl
+../env/Scripts/python.exe tmdl_parser.py tmdl/DimCountry.tmdl
 ```
 
 **Save to a specific JSON file:**
 ```bash
-python tmdl_parser.py tmdl/DimCountry.tmdl -o output.json
+../env/Scripts/python.exe tmdl_parser.py tmdl/DimCountry.tmdl -o output.json
 ```
 
-### 2. Convert a directory
+### 2. Convert a directory of `.tmdl` files
 
 Convert all `.tmdl` files in a directory and save them to an output folder:
 
 ```bash
-python tmdl_parser.py tmdl -o json_output
+../env/Scripts/python.exe tmdl_parser.py tmdl -o json_output
 ```
 *Note: If `json_output` does not exist, it will be created.*
 
-### 3. Help
+### 3. Parse a PBIP folder
+
+Parse a `.pbip` folder and write the aggregated model JSON:
+
+```bash
+../env/Scripts/python.exe pbip_parser.py path\to\Report.pbip --output model.json
+```
+
+### 4. Help
 
 View all available options:
 
 ```bash
-python tmdl_parser.py --help
+../env/Scripts/python.exe tmdl_parser.py --help
 ```
 
 ## Testing
 
-Unit tests are provided to verify the parser's functionality. Run them from the `code` directory:
+Unit tests are provided to verify parser functionality. Run them from the `code` directory:
 
 ```bash
-python test_tmdl_parser.py
+../env/Scripts/python.exe -m unittest
 ```
 
 ## ERD Generation
 
-The `erd_generator.py` utility allows you to generate Entity Relationship Diagrams (ERD) from the JSON output produced by the TMDL parser.
+The `erd_generator.py` utility generates Entity Relationship Diagrams (ERD) from the JSON output produced by `tmdl_parser.py` or `pbip_parser.py`.
 
 ### Features
 
@@ -77,19 +96,19 @@ The `erd_generator.py` utility allows you to generate Entity Relationship Diagra
 **1. Generate Mermaid Markdown:**
 
 ```bash
-python erd_generator.py input.json --output diagram.md
+../env/Scripts/python.exe erd_generator.py input.json --output diagram.md
 ```
 
 **2. Generate PNG Image:**
 
 ```bash
-python erd_generator.py input.json --png-output diagram.png
+../env/Scripts/python.exe erd_generator.py input.json --png-output diagram.png
 ```
 
 **3. Generate both Markdown and PNG:**
 
 ```bash
-python erd_generator.py input.json --output diagram.md --png-output diagram.png
+../env/Scripts/python.exe erd_generator.py input.json --output diagram.md --png-output diagram.png
 ```
 
 ### Options
