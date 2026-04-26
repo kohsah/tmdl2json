@@ -5,9 +5,9 @@ This document describes the current behavior and outputs of the scripts in `code
 ## 1. Overview
 
 The repository provides:
-- `tmdl_parser.py`: Parses a single `.tmdl` file (or a directory of `.tmdl` files) into JSON.
+- `tmdl_parser.py`: Parses `.tmdl` inputs (file/directory) and can also resolve a PBIP report root (or `.pbip` file) into the referenced semantic model definition and emit aggregated JSON.
 - `pbip_parser.py`: Parses a `.pbip` folder structure, discovers the semantic model definition files, and aggregates them into a single JSON document.
-- `erd_generator.py`: Generates a Mermaid `erDiagram` from the aggregated JSON (from either parser) and can optionally render a PNG via mermaid.ink.
+- `erd_generator.py`: Generates a Mermaid `erDiagram` from the aggregated JSON (from either parser) and can render a PNG via remote or offline modes.
 
 All parsing is indentation-based and expects tab-indented TMDL files.
 
@@ -161,6 +161,20 @@ The aggregated JSON is a dictionary that may include:
 - `relationships`: list of relationship objects parsed from `relationships.tmdl`
 - `expressions`: parsed output from `expressions.tmdl` (as produced by the TMDL parser for the given file)
 - `tables`: list of parsed table objects, one per `.tmdl` file under the configured tables folder
+- `cultures`: list of parsed culture objects, one per `.tmdl` file under `cultures/` when present
+
+## 3.4 PBIP Report Root Resolution (`tmdl_parser.py`)
+
+In addition to parsing `.tmdl` files directly, `tmdl_parser.py` can accept:
+- a PBIP report root folder containing a single `.pbip` file, or
+- a `.pbip` file path directly
+
+Resolution chain:
+1. Read `<root>/*.pbip` and extract `artifacts[].report.path`
+2. Read `<root>/<report-folder>/definition.pbir` and extract `datasetReference.byPath.path`
+3. Resolve the semantic model folder and use `<semantic-model-folder>/definition` as the definition folder
+
+The aggregated output includes the same keys as PBIP parsing: `database`, `model`, `relationships`, `tables`, and `cultures` when present.
 
 ## 4. ERD Generation (`erd_generator.py`)
 
@@ -169,6 +183,16 @@ The aggregated JSON is a dictionary that may include:
 The ERD generator expects JSON shaped like the PBIP aggregate output:
 - `tables`: list of table objects with `name` and optional `columns`
 - `relationships`: list of relationship objects with `fromTable`, `toTable`, `fromColumnName`, `toColumnName`
+
+### 4.0 PNG Rendering Modes
+
+When `--png-output` is provided, PNG rendering supports:
+- `--png-mode remote` (default): uses the hosted mermaid.ink service
+- `--png-mode local`: uses locally installed Mermaid CLI (`mmdc`) (offline)
+  - `--mmdc-path` overrides the executable path
+  - `MMDC_PATH` environment variable can also provide the executable path
+  - Precedence: `--mmdc-path` > `MMDC_PATH` > `PATH` (`mmdc`)
+- `--png-mode python`: uses the Python `mermaid-cli` library (offline; see `requirements.txt`)
 
 ### 4.2 Table and Column Rules
 - Excludes tables whose names contain `DateTableTemplate` or `LocalDateTable` (case-insensitive).

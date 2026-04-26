@@ -11,8 +11,11 @@ For contributor and tooling conventions, see [AGENTS.md](AGENTS.md). For a detai
 - **Multi-line Support**: Normalizes multi-line blocks (e.g., partition `source` M scripts, measure expressions) by stripping common indentation.
 - **Partition Source Enrichment**: Extracts `{[Schema="...",Item="..."]}` references and attempts base64 decode/decompression for `Binary.FromText(..., BinaryEncoding.Base64)`.
 - **Batch Processing**: Converts a single file or an entire directory of `.tmdl` files.
-- **PBIP Parsing**: Parses a `.pbip` folder structure and aggregates model definition files into one JSON document.
-- **ERD Generation**: Produces Mermaid ER diagrams from JSON output, with optional PNG export via mermaid.ink.
+- **PBIP Parsing**: Parses PBIP inputs (report root folder, `.pbip` file path, or semantic model folder) and aggregates model definition files into one JSON document.
+- **ERD Generation**: Produces Mermaid ER diagrams from JSON output, with PNG export via:
+  - remote `mermaid.ink` (default)
+  - local Mermaid CLI (`mmdc`)
+  - Python `mermaid-cli` library
 
 ## Project Structure
 
@@ -24,7 +27,9 @@ For contributor and tooling conventions, see [AGENTS.md](AGENTS.md). For a detai
 ├── erd_generator.py
 ├── pbip_definition.json
 ├── pbip_parser.py
+├── requirements.txt
 ├── tmdl_parser.py
+├── test_erd_generator.py
 ├── test_pbip_parser.py
 ├── test_tmdl_parser.py
 └── docs/
@@ -64,6 +69,10 @@ Parse a `.pbip` folder and write the aggregated model JSON:
 ../env/Scripts/python.exe pbip_parser.py path\to\Report.pbip --output model.json
 ```
 
+`tmdl_parser.py` can also accept:
+- a PBIP report root folder containing a single `.pbip` file (it resolves `.pbip -> .Report/definition.pbir -> .SemanticModel/definition`)
+- a `.pbip` file path directly
+
 ### 4. Help
 
 View all available options:
@@ -90,6 +99,8 @@ The `erd_generator.py` utility generates Entity Relationship Diagrams (ERD) from
 - **Smart Filtering**: Automatically excludes system tables (`DateTableTemplate`, `LocalDateTable`) to focus on your business logic.
 - **Clean Output**: Trims DAX formulas from column names for better readability.
 - **PNG Export**: Can export diagrams directly to PNG images using the mermaid.ink API (requires internet access).
+  - Default: remote `mermaid.ink`
+  - Offline: local `mmdc` (Mermaid CLI) or Python `mermaid-cli` (see options below)
 
 ### Usage
 
@@ -115,4 +126,10 @@ The `erd_generator.py` utility generates Entity Relationship Diagrams (ERD) from
 
 - `input_file`: Path to the JSON input file (output from `tmdl_parser.py`).
 - `--output`, `-o`: Path to output Mermaid file (e.g. `output.md`). If ending in `.md`, wraps content in a mermaid code block.
-- `--png-output`: Path to output PNG file. Fetches the rendered image from mermaid.ink.
+- `--png-output`: Path to output PNG file.
+- `--png-mode`: PNG rendering mode:
+  - `remote` (default): uses `mermaid.ink` (requires internet access)
+  - `local`: uses Mermaid CLI (`mmdc`) (offline; requires `mmdc` installed)
+  - `python`: uses Python `mermaid-cli` (offline; install via `requirements.txt`)
+- `--mmdc-path`: Path to `mmdc` executable (for `--png-mode local`)
+- `MMDC_PATH`: Environment variable alternative to `--mmdc-path` (for `--png-mode local`)
