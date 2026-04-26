@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from erd_generator import generate_png_from_mermaid_local, generate_png_from_mermaid_python
+from erd_generator import generate_mermaid_erd, generate_png_from_mermaid, generate_png_from_mermaid_local, generate_png_from_mermaid_python
 
 
 class TestErdGeneratorLocalPng(unittest.TestCase):
@@ -80,6 +80,112 @@ class TestErdGeneratorPythonPng(unittest.TestCase):
             self.assertEqual(kwargs["output_file"], out_path)
             self.assertEqual(kwargs["output_format"], "png")
             self.assertTrue(kwargs["input_file"].endswith(".mmd"))
+
+
+class TestErdGeneratorRemotePng(unittest.TestCase):
+    def test_remote_mode_falls_back_from_pako_on_http_400(self):
+        import urllib.error
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "out.png")
+            response_mock = mock.Mock()
+            response_mock.read.return_value = b"PNGDATA"
+            response_cm = mock.Mock()
+            response_cm.__enter__ = mock.Mock(return_value=response_mock)
+            response_cm.__exit__ = mock.Mock(return_value=None)
+
+            err = urllib.error.HTTPError("https://mermaid.ink/img/x", 400, "Bad Request", hdrs=None, fp=None)
+            with mock.patch("urllib.request.urlopen", side_effect=[err, response_cm]) as urlopen_mock:
+                generate_png_from_mermaid("erDiagram\n", out_path)
+
+            self.assertEqual(len(urlopen_mock.call_args_list), 2)
+            first_req = urlopen_mock.call_args_list[0].args[0]
+            second_req = urlopen_mock.call_args_list[1].args[0]
+            self.assertIn("/img/pako:", first_req.full_url)
+            self.assertIn("?type=png", first_req.full_url)
+            self.assertIn("/img/", second_req.full_url)
+            self.assertNotIn("/img/pako:", second_req.full_url)
+            self.assertIn("?type=png", second_req.full_url)
+
+            with open(out_path, "rb") as f:
+                self.assertEqual(f.read(), b"PNGDATA")
+
+
+class TestMermaidErdSanitization(unittest.TestCase):
+    def test_column_name_sanitizes_invalid_chars(self):
+        data = {
+            "tables": [
+                {
+                    "name": "CountriesWithDS",
+                    "columns": [{"name": "DimCountry.country_name", "dataType": "string"}],
+                }
+            ],
+            "relationships": [],
+        }
+        mmd = generate_mermaid_erd(data)
+        self.assertIn("string DimCountry_country_name", mmd)
+
+
+class TestMermaidErdQualifiedNames(unittest.TestCase):
+    def test_qualified_table_name_and_relationship_mapping(self):
+        data = {
+            "tables": [
+                {
+                    "name": "'inhcm HRLocations'",
+                    "schema": "inhcm",
+                    "item": "HRLocations",
+                    "columns": [{"name": "created_by", "dataType": "string"}],
+                },
+                {
+                    "name": "'qapi vw_CurrentLocationFull_MasterData'",
+                    "schema": "qapi",
+                    "item": "vw_CurrentLocationFull_MasterData",
+                    "columns": [{"name": "location_code", "dataType": "string"}],
+                },
+            ],
+            "relationships": [
+                {
+                    "fromTable": "qapi vw_CurrentLocationFull_MasterData",
+                    "toTable": "inhcm HRLocations",
+                    "fromColumnName": "location_code",
+                    "toColumnName": "location_code",
+                    "isActive": True,
+                }
+            ],
+        }
+        mmd = generate_mermaid_erd(data)
+        self.assertIn('"inhcm.HRLocations" {', mmd)
+        self.assertIn('"qapi.vw_CurrentLocationFull_MasterData" {', mmd)
+        self.assertIn('"qapi.vw_CurrentLocationFull_MasterData" }o--|| "inhcm.HRLocations" : "location_code to location_code"', mmd)
+
+    def test_qualified_names_fall_back_to_partition_source_details(self):
+        data = {
+            "tables": [
+                {
+                    "name": "'inhcm HRLocations'",
+                    "columns": [{"name": "created_by", "dataType": "string"}],
+                    "partitions": [{"sourceDetails": [{"schema": "inhcm", "item": "HRLocations"}]}],
+                },
+                {
+                    "name": "'qapi vw_CurrentLocationFull_MasterData'",
+                    "columns": [{"name": "location_code", "dataType": "string"}],
+                    "partitions": [{"sourceDetails": [{"schema": "qapi", "item": "vw_CurrentLocationFull_MasterData"}]}],
+                },
+            ],
+            "relationships": [
+                {
+                    "fromTable": "qapi vw_CurrentLocationFull_MasterData",
+                    "toTable": "inhcm HRLocations",
+                    "fromColumnName": "location_code",
+                    "toColumnName": "location_code",
+                    "isActive": True,
+                }
+            ],
+        }
+        mmd = generate_mermaid_erd(data)
+        self.assertIn('"inhcm.HRLocations" {', mmd)
+        self.assertIn('"qapi.vw_CurrentLocationFull_MasterData" {', mmd)
+        self.assertIn('"qapi.vw_CurrentLocationFull_MasterData" }o--|| "inhcm.HRLocations" : "location_code to location_code"', mmd)
 
 
 if __name__ == "__main__":

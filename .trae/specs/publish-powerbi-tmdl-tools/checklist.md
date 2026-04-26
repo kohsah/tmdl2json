@@ -1,0 +1,7 @@
+- [x] `pyproject.toml` builds sdist+wheel successfully
+- [x] Distribution metadata: name `powerbi-tmdl-tools`, Apache-2.0 license declared, README renders on PyPI
+- [x] Wheel/sdist include license file
+- [x] Console scripts exist and run: `tmdl-to-json --help`, `pbip-to-json --help`, `tmdl-erd --help`
+- [x] Base install works without PNG extras; PNG dependencies are optional extras
+- [x] `python -m unittest` passes
+- [x] `twine check dist/*` passes

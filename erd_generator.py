@@ -2,6 +2,8 @@ import json
 import argparse
 import sys
 import base64
+import zlib
+import re
 import urllib.request
 import os
 import shutil
@@ -9,30 +11,36 @@ import subprocess
 import tempfile
 import importlib
 
+def _encode_mermaid_ink_pako(mermaid_code):
+    graphbytes = mermaid_code.encode("utf8")
+    compressed = zlib.compress(graphbytes, 9)
+    base64_bytes = base64.urlsafe_b64encode(compressed)
+    return "pako:" + base64_bytes.decode("ascii").rstrip("=")
+
+def _encode_mermaid_ink_base64(mermaid_code):
+    graphbytes = mermaid_code.encode("utf8")
+    base64_bytes = base64.urlsafe_b64encode(graphbytes)
+    return base64_bytes.decode("ascii").rstrip("=")
+
+def _fetch_mermaid_ink_image(encoded_payload, output_path, image_type="png"):
+    url = f"https://mermaid.ink/img/{encoded_payload}?type={image_type}"
+    print(f"Fetching PNG from: {url[:50]}...")
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req) as response:
+        output_dir = os.path.dirname(os.path.abspath(output_path))
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+        with open(output_path, 'wb') as f:
+            f.write(response.read())
+
 def generate_png_from_mermaid(mermaid_code, output_path):
     try:
-        # Mermaid Ink API expects base64 encoded string
-        # Standard base64 might contain + and / which can be problematic in URLs sometimes,
-        # but mermaid.ink handles standard base64 if correctly passed.
-        # However, checking docs, they use base64.urlsafe_b64encode usually.
-        # Let's use urlsafe_b64encode to be safe.
-        
-        graphbytes = mermaid_code.encode("utf8")
-        base64_bytes = base64.urlsafe_b64encode(graphbytes)
-        base64_string = base64_bytes.decode("ascii")
-        
-        url = "https://mermaid.ink/img/" + base64_string
-        
-        print(f"Fetching PNG from: {url[:50]}...")
-        
-        req = urllib.request.Request(
-            url, 
-            headers={'User-Agent': 'Mozilla/5.0'}
-        )
-        
-        with urllib.request.urlopen(req) as response:
-            with open(output_path, 'wb') as f:
-                f.write(response.read())
+        try:
+            _fetch_mermaid_ink_image(_encode_mermaid_ink_pako(mermaid_code), output_path, image_type="png")
+        except urllib.error.HTTPError as e:
+            if e.code not in (400, 414):
+                raise
+            _fetch_mermaid_ink_image(_encode_mermaid_ink_base64(mermaid_code), output_path, image_type="png")
         print(f"PNG generated at: {output_path}")
         
     except urllib.error.HTTPError as e:
@@ -99,6 +107,40 @@ def generate_mermaid_erd(json_data):
     
     # Process Tables
     tables = json_data.get("tables", [])
+    def _strip_outer_quotes(value):
+        if not isinstance(value, str):
+            return value
+        v = value.strip()
+        if len(v) >= 2 and ((v[0] == "'" and v[-1] == "'") or (v[0] == '"' and v[-1] == '"')):
+            return v[1:-1]
+        return v
+
+    def _first_schema_item(table):
+        schema = table.get("schema")
+        item = table.get("item") or table.get("table_item")
+        if schema and item:
+            return schema, item
+        partitions = table.get("partitions") or []
+        for part in partitions:
+            details = (part or {}).get("sourceDetails") or []
+            for entry in details:
+                if isinstance(entry, dict) and entry.get("schema") and entry.get("item"):
+                    return entry["schema"], entry["item"]
+        return schema, item
+
+    display_name_by_table = {}
+    for table in tables:
+        raw_name = table.get("name")
+        if not raw_name:
+            continue
+        schema, item = _first_schema_item(table)
+        display = f"{schema}.{item}" if schema and item else raw_name
+        if isinstance(display, str):
+            display = display.replace('"', "'")
+        display_name_by_table[raw_name] = display
+        normalized = _strip_outer_quotes(raw_name)
+        if normalized and normalized != raw_name:
+            display_name_by_table[normalized] = display
     processed_tables = set()
     
     for table in tables:
@@ -113,7 +155,8 @@ def generate_mermaid_erd(json_data):
         
         # Sanitize table name for Mermaid
         # We use quotes for table names to handle spaces and special chars
-        safe_table_name = f'"{table_name}"'
+        display_table_name = display_name_by_table.get(table_name, table_name)
+        safe_table_name = f'"{display_table_name}"'
         
         lines.append(f"    {safe_table_name} {{")
         
@@ -175,9 +218,16 @@ def generate_mermaid_erd(json_data):
             # to ensure valid syntax without quotes.
             
             display_name = col_name
+            if display_name is None:
+                display_name = ""
             if "=" in display_name:
                 display_name = display_name.split("=", 1)[0].strip()
-            safe_col_name = display_name.replace(" ", "_").replace('"', '').replace("'", "")
+            safe_col_name = re.sub(r"[^0-9A-Za-z_]", "_", display_name)
+            safe_col_name = re.sub(r"_+", "_", safe_col_name).strip("_")
+            if not safe_col_name:
+                safe_col_name = "col"
+            if safe_col_name[0].isdigit():
+                safe_col_name = "col_" + safe_col_name
             lines.append(f'        {data_type} {safe_col_name}')
             
         lines.append("    }")
@@ -261,10 +311,15 @@ def generate_mermaid_erd(json_data):
         # According to ERD.md:
         # <first-entity> [<relationship> <second-entity> : <relationship-label>]
         # The label should be quoted
-        label = f"{from_col} to {to_col}"
+        label = f"{from_col} to {to_col}".replace('"', "'")
         
-        # Use proper syntax with quotes for entities
-        lines.append(f'    "{from_table}" {left_card}{connector}{right_card} "{to_table}" : "{label}"')
+        from_display = display_name_by_table.get(from_table, from_table)
+        to_display = display_name_by_table.get(to_table, to_table)
+        if isinstance(from_display, str):
+            from_display = from_display.replace('"', "'")
+        if isinstance(to_display, str):
+            to_display = to_display.replace('"', "'")
+        lines.append(f'    "{from_display}" {left_card}{connector}{right_card} "{to_display}" : "{label}"')
 
     return "\n".join(lines)
 

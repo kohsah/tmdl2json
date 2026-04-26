@@ -243,6 +243,12 @@ class TmdlParser:
             self._extract_schema_item(normalized_block, parent)
             self._extract_base64_content(normalized_block, parent)
 
+    def _current_table_object(self):
+        for obj, _indent in reversed(self.stack):
+            if isinstance(obj, dict) and obj.get('type') == 'table':
+                return obj
+        return None
+
     def _extract_base64_content(self, source_code, parent):
         # Look for pattern: Binary.FromText("...", BinaryEncoding.Base64)
         pattern = re.compile(r'Binary\.FromText\(\s*"([^"]+)"\s*,\s*BinaryEncoding\.Base64\s*\)')
@@ -307,6 +313,11 @@ class TmdlParser:
                 })
             
             parent['sourceDetails'] = extracted_info
+            table_obj = self._current_table_object()
+            if table_obj is not None and extracted_info:
+                table_obj.setdefault('schema', extracted_info[0]['schema'])
+                table_obj.setdefault('item', extracted_info[0]['item'])
+                table_obj.setdefault('table_item', table_obj.get('item'))
 
     def _normalize_block(self, block_lines):
         if not block_lines:
@@ -442,18 +453,18 @@ def parse_pbip_report_root(root_path):
     definition_folder = os.path.join(semantic_model_folder, 'definition')
     return parse_semantic_model_definition(definition_folder)
 
-if __name__ == "__main__":
+def main(argv=None):
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='Convert TMDL (or PBIP report root) to JSON.')
     parser.add_argument('input', help='Path to a .tmdl file, a folder of .tmdl files, a PBIP report root folder, or a .pbip file')
     parser.add_argument('-o', '--output', help='Path to output JSON file or directory')
-    
-    args = parser.parse_args()
-    
+
+    args = parser.parse_args(argv)
+
     tmdl_input = args.input
     output_target = args.output
-    
+
     if os.path.isdir(tmdl_input):
         pbip_candidates = [f for f in os.listdir(tmdl_input) if f.lower().endswith('.pbip') and os.path.isfile(os.path.join(tmdl_input, f))]
         if pbip_candidates:
@@ -475,7 +486,7 @@ if __name__ == "__main__":
             if output_target:
                 if os.path.exists(output_target) and not os.path.isdir(output_target):
                     print(f"Error: Output path '{output_target}' exists and is not a directory. Cannot output multiple files to a single file.")
-                    sys.exit(1)
+                    return 1
                 if not os.path.exists(output_target):
                     os.makedirs(output_target)
 
@@ -517,3 +528,8 @@ if __name__ == "__main__":
                     print(convert_tmdl_to_json(tmdl_input, output_target))
             else:
                 print(convert_tmdl_to_json(tmdl_input))
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

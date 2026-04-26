@@ -8,10 +8,15 @@ class ConfigLoader:
 
     def _load_config(self):
         """Loads the JSON configuration file."""
-        if not os.path.exists(self.config_path):
-            raise FileNotFoundError(f"Configuration file not found: {self.config_path}")
+        config_path = self.config_path
+        if not os.path.exists(config_path) and not os.path.isabs(config_path):
+            candidate = os.path.join(os.path.dirname(__file__), config_path)
+            if os.path.exists(candidate):
+                config_path = candidate
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
         
-        with open(self.config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
 
     def get_pbip_file_pattern(self):

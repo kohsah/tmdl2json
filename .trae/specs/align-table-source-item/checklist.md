@@ -1,0 +1,5 @@
+- [x] Table JSON includes `schema` and `item` derived from partition `sourceDetails`
+- [x] Table JSON still includes `table_item` alias matching `item`
+- [x] ERD uses `schema.item` when available (falls back to `schema.table_item`)
+- [x] Unit tests cover new fields and ERD behavior
+- [x] `python -m unittest` passes
