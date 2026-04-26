@@ -341,11 +341,112 @@ def convert_tmdl_to_json(tmdl_path, output_path=None):
     else:
         return json_output
 
+def _read_json_file(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def _find_single_pbip_file(root_dir):
+    pbip_files = [f for f in os.listdir(root_dir) if f.lower().endswith('.pbip') and os.path.isfile(os.path.join(root_dir, f))]
+    pbip_files.sort(key=lambda s: s.lower())
+    if len(pbip_files) != 1:
+        raise ValueError(f"Expected exactly 1 .pbip file in '{root_dir}', found {len(pbip_files)}")
+    return os.path.join(root_dir, pbip_files[0])
+
+def _resolve_report_folder_from_pbip(pbip_path):
+    pbip_root = os.path.dirname(pbip_path)
+    pbip_json = _read_json_file(pbip_path)
+    artifacts = pbip_json.get('artifacts', [])
+    report_paths = []
+    for artifact in artifacts:
+        report = (artifact or {}).get('report')
+        if isinstance(report, dict) and isinstance(report.get('path'), str):
+            report_paths.append(report['path'])
+    report_paths = [p for p in report_paths if p]
+    report_paths = list(dict.fromkeys(report_paths))
+    if len(report_paths) != 1:
+        raise ValueError(f"Expected exactly 1 report path in '{pbip_path}', found {len(report_paths)}")
+    report_folder = os.path.normpath(os.path.join(pbip_root, report_paths[0]))
+    if not os.path.isdir(report_folder):
+        raise FileNotFoundError(f"Report folder not found: {report_folder}")
+    return report_folder
+
+def _resolve_semantic_model_folder_from_report(report_folder):
+    definition_path = os.path.join(report_folder, 'definition.pbir')
+    if not os.path.isfile(definition_path):
+        raise FileNotFoundError(f"Report definition not found: {definition_path}")
+    report_def = _read_json_file(definition_path)
+    dataset_ref = report_def.get('datasetReference') or {}
+    by_path = dataset_ref.get('byPath')
+    by_connection = dataset_ref.get('byConnection')
+    if by_connection:
+        raise ValueError("datasetReference.byConnection is not supported")
+    if not isinstance(by_path, dict) or not isinstance(by_path.get('path'), str) or not by_path.get('path'):
+        raise ValueError("datasetReference.byPath.path is missing or invalid")
+    semantic_model_folder = os.path.normpath(os.path.join(report_folder, by_path['path']))
+    if not os.path.isdir(semantic_model_folder):
+        raise FileNotFoundError(f"Semantic model folder not found: {semantic_model_folder}")
+    return semantic_model_folder
+
+def parse_semantic_model_definition(definition_folder):
+    if not os.path.isdir(definition_folder):
+        raise FileNotFoundError(f"Definition folder not found: {definition_folder}")
+
+    result = {}
+
+    database_path = os.path.join(definition_folder, 'database.tmdl')
+    if os.path.isfile(database_path):
+        result['database'] = TmdlParser(database_path).parse()
+
+    model_path = os.path.join(definition_folder, 'model.tmdl')
+    if os.path.isfile(model_path):
+        result['model'] = TmdlParser(model_path).parse()
+
+    relationships_path = os.path.join(definition_folder, 'relationships.tmdl')
+    if os.path.isfile(relationships_path):
+        parsed = TmdlParser(relationships_path).parse()
+        if isinstance(parsed, dict) and 'relationships' in parsed:
+            result['relationships'] = parsed['relationships']
+        else:
+            result['relationships'] = parsed
+
+    tables_folder = os.path.join(definition_folder, 'tables')
+    if os.path.isdir(tables_folder):
+        tables = []
+        for filename in sorted(os.listdir(tables_folder), key=lambda s: s.lower()):
+            if filename.lower().endswith('.tmdl'):
+                tables.append(TmdlParser(os.path.join(tables_folder, filename)).parse())
+        result['tables'] = tables
+
+    cultures_folder = os.path.join(definition_folder, 'cultures')
+    if os.path.isdir(cultures_folder):
+        cultures = []
+        for filename in sorted(os.listdir(cultures_folder), key=lambda s: s.lower()):
+            if filename.lower().endswith('.tmdl'):
+                cultures.append(TmdlParser(os.path.join(cultures_folder, filename)).parse())
+        result['cultures'] = cultures
+
+    return result
+
+def parse_pbip_report_root(root_path):
+    if os.path.isfile(root_path) and root_path.lower().endswith('.pbip'):
+        pbip_path = root_path
+        pbip_root = os.path.dirname(pbip_path)
+    else:
+        if not os.path.isdir(root_path):
+            raise FileNotFoundError(f"PBIP root folder not found: {root_path}")
+        pbip_root = root_path
+        pbip_path = _find_single_pbip_file(pbip_root)
+
+    report_folder = _resolve_report_folder_from_pbip(pbip_path)
+    semantic_model_folder = _resolve_semantic_model_folder_from_report(report_folder)
+    definition_folder = os.path.join(semantic_model_folder, 'definition')
+    return parse_semantic_model_definition(definition_folder)
+
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description='Convert TMDL file to JSON.')
-    parser.add_argument('input', help='Path to TMDL file or directory')
+    parser = argparse.ArgumentParser(description='Convert TMDL (or PBIP report root) to JSON.')
+    parser.add_argument('input', help='Path to a .tmdl file, a folder of .tmdl files, a PBIP report root folder, or a .pbip file')
     parser.add_argument('-o', '--output', help='Path to output JSON file or directory')
     
     args = parser.parse_args()
@@ -354,36 +455,65 @@ if __name__ == "__main__":
     output_target = args.output
     
     if os.path.isdir(tmdl_input):
-        # Process all tmdl files in directory
-        if output_target:
-             if os.path.exists(output_target) and not os.path.isdir(output_target):
-                 print(f"Error: Output path '{output_target}' exists and is not a directory. Cannot output multiple files to a single file.")
-                 sys.exit(1)
-             if not os.path.exists(output_target):
-                 os.makedirs(output_target)
-                 
-        for filename in os.listdir(tmdl_input):
-            if filename.endswith(".tmdl"):
-                full_path = os.path.join(tmdl_input, filename)
-                
-                if output_target:
+        pbip_candidates = [f for f in os.listdir(tmdl_input) if f.lower().endswith('.pbip') and os.path.isfile(os.path.join(tmdl_input, f))]
+        if pbip_candidates:
+            data = parse_pbip_report_root(tmdl_input)
+            json_output = json.dumps(data, indent=2)
+            if output_target:
+                if os.path.isdir(output_target):
+                    pbip_path = _find_single_pbip_file(tmdl_input)
+                    base = os.path.splitext(os.path.basename(pbip_path))[0]
+                    out_path = os.path.join(output_target, f"{base}.json")
+                else:
+                    out_path = output_target
+                with open(out_path, 'w', encoding='utf-8') as f:
+                    f.write(json_output)
+                print(f"JSON saved to {out_path}")
+            else:
+                print(json_output)
+        else:
+            if output_target:
+                if os.path.exists(output_target) and not os.path.isdir(output_target):
+                    print(f"Error: Output path '{output_target}' exists and is not a directory. Cannot output multiple files to a single file.")
+                    sys.exit(1)
+                if not os.path.exists(output_target):
+                    os.makedirs(output_target)
+
+            for filename in os.listdir(tmdl_input):
+                if filename.endswith(".tmdl"):
+                    full_path = os.path.join(tmdl_input, filename)
+
+                    if output_target:
+                        json_filename = filename.replace('.tmdl', '.json')
+                        out_path = os.path.join(output_target, json_filename)
+                        print(convert_tmdl_to_json(full_path, out_path))
+                    else:
+                        print(f"--- {filename} ---")
+                        print(convert_tmdl_to_json(full_path))
+                        print("\n")
+    else:
+        if tmdl_input.lower().endswith('.pbip'):
+            data = parse_pbip_report_root(tmdl_input)
+            json_output = json.dumps(data, indent=2)
+            if output_target:
+                if os.path.isdir(output_target):
+                    base = os.path.splitext(os.path.basename(tmdl_input))[0]
+                    out_path = os.path.join(output_target, f"{base}.json")
+                else:
+                    out_path = output_target
+                with open(out_path, 'w', encoding='utf-8') as f:
+                    f.write(json_output)
+                print(f"JSON saved to {out_path}")
+            else:
+                print(json_output)
+        else:
+            if output_target:
+                if os.path.isdir(output_target):
+                    filename = os.path.basename(tmdl_input)
                     json_filename = filename.replace('.tmdl', '.json')
                     out_path = os.path.join(output_target, json_filename)
-                    print(convert_tmdl_to_json(full_path, out_path))
+                    print(convert_tmdl_to_json(tmdl_input, out_path))
                 else:
-                    print(f"--- {filename} ---")
-                    print(convert_tmdl_to_json(full_path))
-                    print("\n")
-    else:
-        if output_target:
-            # Check if output_target is a directory
-            if os.path.isdir(output_target):
-                filename = os.path.basename(tmdl_input)
-                json_filename = filename.replace('.tmdl', '.json')
-                out_path = os.path.join(output_target, json_filename)
-                print(convert_tmdl_to_json(tmdl_input, out_path))
+                    print(convert_tmdl_to_json(tmdl_input, output_target))
             else:
-                # Assume it's a file path
-                print(convert_tmdl_to_json(tmdl_input, output_target))
-        else:
-            print(convert_tmdl_to_json(tmdl_input))
+                print(convert_tmdl_to_json(tmdl_input))
