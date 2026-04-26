@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "powerbi-tmdl-tools"
+version = "1.0.3"
+description = "Convert Power BI/Tabular TMDL and PBIP semantic models to JSON and generate Mermaid ERDs."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{name = "kohsah", email = "kohsakohsa@proton.me"}]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+]
+
+[project.scripts]
+tmdl-to-json = "tmdl_parser:main"
+pbip-to-json = "pbip_parser:main"
+tmdl-erd = "erd_generator:main"
+
+[project.optional-dependencies]
+png-python = ["mermaid-cli"]
+
+[tool.setuptools]
+py-modules = ["config_loader", "erd_generator", "pbip_parser", "tmdl_parser"]
+
+[tool.setuptools.data-files]
+"" = ["pbip_definition.json", "LICENSE"]

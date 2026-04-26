@@ -40,6 +40,25 @@ For contributor and tooling conventions, see [AGENTS.md](AGENTS.md). For a detai
 
 Run commands from the `code` directory using the in-repo virtual environment Python (`../env/Scripts/python.exe` on Windows, or `../env/python` if you use a shim).
 
+## Install (PyPI)
+
+Install from PyPI:
+
+```bash
+python -m pip install powerbi-tmdl-tools
+```
+
+Optional (enable `--png-mode python` for ERD PNG rendering):
+
+```bash
+python -m pip install "powerbi-tmdl-tools[png-python]"
+```
+
+After installation, the following console commands are available:
+- `tmdl-to-json`
+- `pbip-to-json`
+- `tmdl-erd`
+
 ### 1. Convert a single TMDL file
 
 **Print to console:**

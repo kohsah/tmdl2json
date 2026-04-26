@@ -453,18 +453,18 @@ def parse_pbip_report_root(root_path):
     definition_folder = os.path.join(semantic_model_folder, 'definition')
     return parse_semantic_model_definition(definition_folder)
 
-if __name__ == "__main__":
+def main(argv=None):
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='Convert TMDL (or PBIP report root) to JSON.')
     parser.add_argument('input', help='Path to a .tmdl file, a folder of .tmdl files, a PBIP report root folder, or a .pbip file')
     parser.add_argument('-o', '--output', help='Path to output JSON file or directory')
-    
-    args = parser.parse_args()
-    
+
+    args = parser.parse_args(argv)
+
     tmdl_input = args.input
     output_target = args.output
-    
+
     if os.path.isdir(tmdl_input):
         pbip_candidates = [f for f in os.listdir(tmdl_input) if f.lower().endswith('.pbip') and os.path.isfile(os.path.join(tmdl_input, f))]
         if pbip_candidates:
@@ -486,7 +486,7 @@ if __name__ == "__main__":
             if output_target:
                 if os.path.exists(output_target) and not os.path.isdir(output_target):
                     print(f"Error: Output path '{output_target}' exists and is not a directory. Cannot output multiple files to a single file.")
-                    sys.exit(1)
+                    return 1
                 if not os.path.exists(output_target):
                     os.makedirs(output_target)
 
@@ -528,3 +528,8 @@ if __name__ == "__main__":
                     print(convert_tmdl_to_json(tmdl_input, output_target))
             else:
                 print(convert_tmdl_to_json(tmdl_input))
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
