@@ -38,7 +38,7 @@ For contributor and tooling conventions, see [AGENTS.md](AGENTS.md). For a detai
 
 ## Usage
 
-Run commands from the `code` directory using the in-repo virtual environment Python (`../env/Scripts/python.exe` on Windows, or `../env/python` if you use a shim).
+Run commands from the `code` directory using the in-repo virtual environment Python (`../env/Scripts/python` on Windows, or `../env/python` if you use a shim).
 
 ## Install (PyPI)
 
@@ -63,12 +63,12 @@ After installation, the following console commands are available:
 
 **Print to console:**
 ```bash
-../env/Scripts/python.exe tmdl_parser.py tmdl/DimCountry.tmdl
+../env/Scripts/python tmdl_parser.py tmdl/DimCountry.tmdl
 ```
 
 **Save to a specific JSON file:**
 ```bash
-../env/Scripts/python.exe tmdl_parser.py tmdl/DimCountry.tmdl -o output.json
+../env/Scripts/python tmdl_parser.py tmdl/DimCountry.tmdl -o output.json
 ```
 
 ### 2. Convert a directory of `.tmdl` files
@@ -76,7 +76,7 @@ After installation, the following console commands are available:
 Convert all `.tmdl` files in a directory and save them to an output folder:
 
 ```bash
-../env/Scripts/python.exe tmdl_parser.py tmdl -o json_output
+../env/Scripts/python tmdl_parser.py tmdl -o json_output
 ```
 *Note: If `json_output` does not exist, it will be created.*
 
@@ -85,7 +85,7 @@ Convert all `.tmdl` files in a directory and save them to an output folder:
 Parse a `.pbip` folder and write the aggregated model JSON:
 
 ```bash
-../env/Scripts/python.exe pbip_parser.py path\to\Report.pbip --output model.json
+../env/Scripts/python pbip_parser.py path\to\Report.pbip --output model.json
 ```
 
 `tmdl_parser.py` can also accept:
@@ -97,7 +97,7 @@ Parse a `.pbip` folder and write the aggregated model JSON:
 View all available options:
 
 ```bash
-../env/Scripts/python.exe tmdl_parser.py --help
+../env/Scripts/python tmdl_parser.py --help
 ```
 
 ## Testing
@@ -105,7 +105,7 @@ View all available options:
 Unit tests are provided to verify parser functionality. Run them from the `code` directory:
 
 ```bash
-../env/Scripts/python.exe -m unittest
+../env/Scripts/python -m unittest
 ```
 
 ## ERD Generation
@@ -126,19 +126,19 @@ The `erd_generator.py` utility generates Entity Relationship Diagrams (ERD) from
 **1. Generate Mermaid Markdown:**
 
 ```bash
-../env/Scripts/python.exe erd_generator.py input.json --output diagram.md
+../env/Scripts/python erd_generator.py input.json --output diagram.md
 ```
 
 **2. Generate PNG Image:**
 
 ```bash
-../env/Scripts/python.exe erd_generator.py input.json --png-output diagram.png
+../env/Scripts/python erd_generator.py input.json --png-output diagram.png
 ```
 
 **3. Generate both Markdown and PNG:**
 
 ```bash
-../env/Scripts/python.exe erd_generator.py input.json --output diagram.md --png-output diagram.png
+../env/Scripts/python erd_generator.py input.json --output diagram.md --png-output diagram.png
 ```
 
 ### Options
